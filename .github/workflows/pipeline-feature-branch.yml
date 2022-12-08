@@ -1,0 +1,10 @@
+name: Feature Branch Pipeline
+
+on: 
+  pull_request:
+    branches:
+      - 'release/*'
+
+jobs:
+  test-and-quality:
+    uses: ./.github/workflows/commom-test-and-quality.yml

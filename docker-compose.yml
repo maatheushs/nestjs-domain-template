@@ -1,0 +1,125 @@
+version: '3.7'
+services:
+
+  app:
+    profiles: 
+      - app
+    build:
+      context: .
+      target: development
+    volumes:
+        - ./:/home/node/app
+    networks:
+      - network
+    ports:
+      - '3000:3000'
+    command: >
+        sh -c "
+        npm install &&
+        npm run start:dev"
+    env_file: .env.docker
+    depends_on:
+      - postgres
+      - redis
+
+  test:
+    profiles: 
+      - test
+    build:
+      context: .
+      target: development
+    volumes:
+        - ./:/home/node/app
+    networks:
+      - network
+    command: >
+        sh -c "
+        npm install &&
+        npm run test:cov"
+    environment:
+      - POSTGRES_DB=test
+    env_file: .env.docker
+    depends_on:
+      - postgres
+      - redis
+
+  console:
+    profiles: 
+      - console
+    build:
+      context: .
+      target: development
+    volumes:
+        - ./:/home/node/app
+    networks:
+      - network
+    command: /bin/bash
+    env_file: .env.docker
+    depends_on:
+      - postgres
+      - redis
+
+  app-production-mode:
+    profiles: 
+      - app-production-mode
+    build:
+      context: .
+      target: production
+    networks:
+      - network
+    ports:
+      - '3000:3000'    
+    env_file: .env.docker
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    profiles: 
+      - app
+      - test
+      - console
+      - app-production-mode
+      - tools
+    image: postgres:11.4
+    networks:
+      - network
+    volumes:
+      - myapp-data:/var/lib/postgresql
+      - ./test/database.setup.sql:/docker-entrypoint-initdb.d/database.setup.sql
+    ports:
+      - '5432:5432'
+    env_file: .env.docker
+
+  adminer:
+    profiles: 
+      - app      
+      - console
+      - tools
+    image: adminer
+    networks:
+      - network
+    ports:
+      - 8080:8080
+    depends_on:
+      - postgres
+
+  redis:
+    profiles: 
+      - app
+      - test
+      - console
+      - app-production-mode
+      - tools
+    image: redis:7.0
+    ports:
+      - 6379:6379
+    networks:
+      - network
+
+networks:
+  network:
+    driver: bridge
+
+volumes:
+  myapp-data:

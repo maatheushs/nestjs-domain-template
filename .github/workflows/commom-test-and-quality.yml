@@ -1,0 +1,96 @@
+name: Common (Test and Quality)
+
+on: 
+  workflow_call
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: '19.0'
+      
+      # Node_modules cache in CI process.
+      - uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      # Services on which the application depends.
+      - name: Up tools dependencies
+        run: docker-compose --profile tools up -d
+
+      - name: Run tests
+        run: |
+          npm ci
+          npm run test:cov
+
+      # Publishes coverage report in PR and in the detail of the action performed.
+      - name: Publish Coverage
+        uses: 5monkeys/cobertura-action@v13
+        with:
+          path: report/coverage/cobertura-coverage.xml
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          minimum_coverage: 60
+          show_line: true
+          show_branch: true
+          show_class_names: true
+          only_changed_files: false
+          show_missing: true
+          report_name: Tests Coverage
+
+      # Publishes test report in PR and in the detail of the action performed.
+      - name: Test Report
+        uses: phoenix-actions/test-reporting@v8
+        if: success() || failure()
+        with:
+          name: Test Report
+          reporter: jest-junit
+          path: report/test-report.xml
+
+  code-quality:
+    name: Code Quality
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v3
+        with:
+          node-version: '19.0'
+
+      # Node_modules cache in CI process.
+      - uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Dependencies install
+        run: |
+          npm ci
+
+      # Generate only the linter report, no automatic adjustments.
+      - name: Save Code Linting Report JSON        
+        continue-on-error: true
+        run: npm run lint:report
+      
+      # Publishes linter report in PR (attached to code) and in the detail of the action performed.
+      - name: Linter Report
+        uses: ataylorme/eslint-annotate-action@v2
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          report-json: "report/eslint-report.json"

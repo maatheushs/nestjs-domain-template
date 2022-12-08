@@ -1,0 +1,29 @@
+name: Pre Production Pipeline
+
+on: 
+  pull_request:
+    branches:
+      - 'main'
+  push:
+    branches:
+      - 'release/*'
+
+jobs:
+  test-and-quality:
+    uses: ./.github/workflows/commom-test-and-quality.yml
+
+  build-image:
+    needs: [test-and-quality]     
+    uses: ./.github/workflows/commom-docker-image-build.yml
+    secrets: inherit
+    with:
+      image_tag: stage
+  
+  deploy:
+    needs: [build-image]
+    uses: ./.github/workflows/commom-aws-ecs-deploy.yml
+    secrets: inherit
+    with:
+      environment: stage
+      environment_url: 
+      image_tag: stage
