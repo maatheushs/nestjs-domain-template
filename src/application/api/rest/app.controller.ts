@@ -9,7 +9,7 @@ export class AppController {
   @Get()
   getAppName(): string {
     return (
-      '${template.project_name}<br>Node mode: ' +
+      'nestjs-domain-template<br>Node mode: ' +
       this.configService.get('application.nodeEnv')
     );
   }
